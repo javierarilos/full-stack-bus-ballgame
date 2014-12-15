@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" ng-app="ballgameApp" ng-controller="BallgameController">
+<head>
+    <meta charset="utf-8">
+    <title>Ballgame: {{name}}</title>
+    <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.css">
+    <link rel="stylesheet" href="css/app.css">
+    <script src="bower_components/lodash/dist/lodash.js"></script>
+    <script src="bower_components/angular/angular.js"></script>
+    <script src="bower_components/postal.js/lib/postal.js"></script>
+    <script src="https://cdn.jsdelivr.net/sockjs/0.3.4/sockjs.min.js"></script>
+    <!--<script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script> -->
+    <script src="js/controllers.js"></script>
+    <script src="js/stomp.js"></script>
+</head>
+
+<body>
+
+<h4>Welcome to the game {{name}}</h4>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2">
+            <!--Sidebar content-->
+            <label for="name" class="col-sm-2 control-label">Name:</label>
+            <input ng-model="name" ng-disabled=" ! nameIsInvalid && playing" ng-change="nameChanged()" class="form-control" id="name"/> <br/>
+            <p ng-show=" ! playing">Name is valid: {{!nameIsInvalid}} </p><p ng-show=" ! nameIsInvalid && ! playing"><strong>Please press Start button.</strong></b></p>
+            <!-- Main panel -->
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>
+                        User
+                    </th>
+                    <th>
+                        Score
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+
+                <tr ng-repeat="playerScore in aggregatedScores">
+                    <td>{{playerScore[0]}}</td>
+                    <td>{{playerScore[1]}}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-10">
+            <!-- Main panel -->
+            <table class="table table-bordered ">
+                <thead>
+                <tr>
+                    <th>
+                        <small>row x col</small>
+                    </th>
+                    <th>
+                        0
+                    </th>
+                    <th>
+                        1
+                    </th>
+                    <th>
+                        2
+                    </th>
+                    <th>
+                        3
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+
+                <tr ng-repeat="playfieldRow in playfield">
+                    <td>{{$index}}</td>
+                    <td>{{playfieldRow[0]}}</td>
+                    <td>{{playfieldRow[1]}}</td>
+                    <td>{{playfieldRow[2]}}</td>
+                    <td>{{playfieldRow[3]}}</td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="form-group form-inline">
+                <input ng-model="positionToPingTxt" ng-disabled=" ! playing " class="form-control"/>
+                <button ng-click="buttonClicked()" ng-disabled="nameIsInvalid"  class="btn">{{buttonText}}</button>
+            </div>
+
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>
+                        Game events
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+
+                <tr ng-repeat="event in events">
+                    <td>{{event.date}}. {{event.txt}}</td>
+                </tr>
+                </tbody>
+            </table>
+
+
+
+
+        </div>
+
+    </div>
+</div>
+
+
+</body>
+</html>
