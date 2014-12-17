@@ -6,29 +6,9 @@ var NEW_PLAYER_MSG = 'single.new-player';
 var BALL_MSG = 'ball';
 var SCORED_MSG = 'single.score';
 var AGGREGATED_SCORES = 'aggregated.scores';
+var ALL_SINGLE_MSGS = 'single.*'
 
-function clearPlayfield(playfield) {
-    for (var rowName in playfield) {
-        var row = playfield[rowName];
-        for (var rounName in row) {
-            row[rounName] = '';
-        }
-    }
-}
-
-function generateLogEvent(msg) {
-    var d = new Date();
-    return {date: d.getHours()+':'+d.getMinutes()+':'+d.getSeconds(), txt: msg};
-}
-
-function addBallGameEventToLog(scope, gameEvent){
-    var event = generateLogEvent('Ballgame event: ' + gameEvent);
-    scope.events.unshift(event);
-}
-
-function updateAggregatedScores(scope, msg) {
-    scope.aggregatedScores = msg.value.scores;
-}
+/* MESSAGE CREATION FUNCTIONS */
 
 function generateMessageObjectToSend(type, name, value) {
     return {type: type, name: name, value: value, ts: new Date().toString()};
@@ -46,6 +26,8 @@ function generateScoredMessage(name) {
     return generateMessageObjectToSend(SCORED_MSG, name, {player: name});
 }
 
+/* BALL AND PLAYFIELD FUNCTIONS */
+
 function parseBallMessage(ballStr) {
     var ball = JSON.parse(ballStr);
     return ball.value.ball;
@@ -59,6 +41,15 @@ function generateRandomPosition() {
     var row = Math.floor(Math.random() * 4);
     var column = Math.floor(Math.random() * 4);
     return [row, column];
+}
+
+function clearPlayfield(playfield) {
+    for (var rowName in playfield) {
+        var row = playfield[rowName];
+        for (var rounName in row) {
+            row[rounName] = '';
+        }
+    }
 }
 
 function putBall(playfield, ball, position) {
@@ -105,6 +96,24 @@ function pickBall(playfield, position) {
     return ball;
 }
 
+/* UI BINDING FUNCTIONS */
+
+function generateLogEvent(msg) {
+    var d = new Date();
+    return {date: d.getHours()+':'+d.getMinutes()+':'+d.getSeconds(), txt: msg};
+}
+
+function addBallGameEventToLog(scope, gameEvent){
+    var event = generateLogEvent('Ballgame event: ' + gameEvent);
+    scope.events.unshift(event);
+}
+
+function updateAggregatedScores(scope, msg) {
+    scope.aggregatedScores = msg.value.scores;
+}
+
+/* STOMP-RABBITMQ FUNCTIONS AND EVENT HANDLERS */
+
 function publishBallGameEvent(client, msg) {
     client.send('/topic/ballgame', {"content-type": "text/plain"}, JSON.stringify(msg));
 }
@@ -113,25 +122,19 @@ function sendBall(client, ball) {
     client.send('/queue/balls', {"content-type": "text/plain"}, JSON.stringify(ball));
 }
 
-function setupPostal(scope){
 
-    var channel = postal.channel();
+function ballReceived(scope, stompMsg) {
+    var ball = parseBallMessage(stompMsg.body);
+    addBallGameEventToLog(scope, 'Pong! received: ' + JSON.stringify(ball));
+    putBall(scope.playfield, ball);
+    scope.$apply();
+}
 
-    var aggSubscription = channel.subscribe( AGGREGATED_SCORES, function( msg ) {
-        console.log('€€€€€€ aggSubscription', msg);
-        updateAggregatedScores(scope, msg);
-        scope.$apply();
-    } );
+function ballGameEventReceived(scope, stompMsg) {
+    var msg = JSON.parse(stompMsg.body);
 
-    var singleSubscription = channel.subscribe( 'single.*', function( msg ) {
-        console.log('****** singleSubscription', msg);
-        addBallGameEventToLog(scope, JSON.stringify(msg));
-        scope.$apply();
-    } );
-
-// And someone publishes a name change:
-
-    scope.postalChannel = channel;
+    scope.postalChannel.publish( msg.type, msg );
+    scope.$apply();
 }
 
 function connectToRabbit(scope) {
@@ -146,19 +149,8 @@ function connectToRabbit(scope) {
     client.heartbeat.incoming = 0;
 
     var on_connect = function () {
-        client.subscribe("/topic/ballgame", function (d) {
-            var msg = JSON.parse(d.body);
-
-            scope.postalChannel.publish( msg.type, msg );
-            scope.$apply();
-        });
-
-        client.subscribe("/queue/balls", function (d) {
-            var ball = parseBallMessage(d.body);
-            addBallGameEventToLog(scope, 'Pong! received: ' + JSON.stringify(ball));
-            putBall(scope.playfield, ball);
-            scope.$apply();
-        });
+        client.subscribe("/topic/ballgame", ballGameEventReceived.bind(null, scope));
+        client.subscribe("/queue/balls", ballReceived.bind(null, scope));
 
         publishBallGameEvent(client, generateNewPlayerMessage(scope.name));
     };
@@ -169,6 +161,29 @@ function connectToRabbit(scope) {
 
     client.connect('guest', 'guest', on_connect, on_error, '/');
 }
+
+/* POSTAL.JS FUNCTIONS AND EVENT HANDLERS */
+
+function aggregatedScoreReceived(scope, msg) {
+    updateAggregatedScores(scope, msg);
+    scope.$apply();
+}
+
+function singleMessageReceived( msg ) {
+    addBallGameEventToLog(scope, JSON.stringify(msg));
+    scope.$apply();
+}
+
+function setupPostal(scope){
+    var channel = postal.channel();
+
+    channel.subscribe(AGGREGATED_SCORES, aggregatedScoreReceived.bind(null, scope));
+    channel.subscribe(ALL_SINGLE_MSGS, singleMessageReceived.bind(null, scope));
+
+    scope.postalChannel = channel;
+}
+
+/* ANGULAR.JS BALLGAME CONTROLLER */
 
 ballgameApp.controller('BallgameController', function ($scope) {
     $scope.playfield = [
