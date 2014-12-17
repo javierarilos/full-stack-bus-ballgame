@@ -169,7 +169,7 @@ function aggregatedScoreReceived(scope, msg) {
     scope.$apply();
 }
 
-function singleMessageReceived( msg ) {
+function singleMessageReceived(scope, msg) {
     addBallGameEventToLog(scope, JSON.stringify(msg));
     scope.$apply();
 }
