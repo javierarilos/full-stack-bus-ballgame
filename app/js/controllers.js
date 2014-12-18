@@ -125,8 +125,8 @@ function sendBall(client, ball) {
 
 function ballReceived(scope, stompMsg) {
     var ball = parseBallMessage(stompMsg.body);
-    addBallGameEventToLog(scope, 'Pong! received: ' + JSON.stringify(ball));
-    putBall(scope.playfield, ball);
+    publishLocalMessageToPostal(scope, {type: 'single.pong', desc: 'Pong! ball received: ' + JSON.stringify(ball)});
+        putBall(scope.playfield, ball);
     scope.$apply();
 }
 
@@ -183,6 +183,10 @@ function setupPostal(scope){
     scope.postalChannel = channel;
 }
 
+function publishLocalMessageToPostal(scope, msg){
+    scope.postalChannel.publish(msg.type, msg);
+}
+
 /* ANGULAR.JS BALLGAME CONTROLLER */
 
 ballgameApp.controller('BallgameController', function ($scope) {
@@ -212,15 +216,17 @@ ballgameApp.controller('BallgameController', function ($scope) {
     $scope.ping = function () {
         var position = parsePosition($scope.positionToPingTxt);
         if (!position) {
-            addBallGameEventToLog($scope, 'Fail! Pinged to invalid position: "' + $scope.positionToPingTxt + '"');
+            publishLocalMessageToPostal($scope, {type: 'single.ping-fail', desc: 'Fail! Pinged to invalid position [' + $scope.positionToPingTxt + ']'})
             return;
         }
-        addBallGameEventToLog($scope, 'Ping! position: "' + $scope.positionToPingTxt + '"');
+        //addBallGameEventToLog($scope, 'Ping! position: "' + $scope.positionToPingTxt + '"');
+        publishLocalMessageToPostal($scope, {type: 'single.ping', desc: 'Ping! position: [' + $scope.positionToPingTxt + '].'});
         var ball = pickBall($scope.playfield, position);
         if (ball) {
-            addBallGameEventToLog($scope, 'Picked ball "' + ball + '".');
+            publishLocalMessageToPostal($scope, {type: 'single.ball-picked', desc: 'Picked ball ' + ball + '.'});
 
             sendBall($scope.client, generateBallMessage(ball, $scope.name));
+
             publishBallGameEvent($scope.client, generateScoredMessage($scope.name));
         } else {
             addBallGameEventToLog($scope, 'Fail! no ball at: "' + position + '"');
@@ -241,7 +247,7 @@ ballgameApp.controller('BallgameController', function ($scope) {
         connectToRabbit($scope);
         $scope.buttonText = 'Ping!';
         $scope.playing = true;
-        addBallGameEventToLog($scope, 'Starting to play a Ballgame');
+        publishLocalMessageToPostal($scope, {type: 'single.gamestart', desc: 'Starting to play a Ballgame'});
         var ball = generateBall($scope.name);
         putBall($scope.playfield, ball.ballStr);
         $scope.putBallTs = Date.now();
